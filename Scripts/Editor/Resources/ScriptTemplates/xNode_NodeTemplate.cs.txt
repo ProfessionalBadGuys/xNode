@@ -12,7 +12,7 @@ public class #SCRIPTNAME# : Node {
 	}
 
 	// Return the correct value of an output port when requested
-	public override object GetValue(NodePort port) {
+	public override object GetValue(IDictionary<string, object> context, NodePort port) {
 		return null; // Replace this
 	}
 }

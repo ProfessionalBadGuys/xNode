@@ -126,7 +126,11 @@ namespace XNode {
         }
 
         /// <summary> Update static ports and dynamic ports managed by DynamicPortLists to reflect class fields. This happens automatically on enable or on redrawing a dynamic port list. </summary>
-        public void UpdatePorts() {
+        public virtual void UpdatePorts() {
+            NodeDataCache.UpdatePorts(this, ports);
+        }
+
+        public void UpdatePortsCache() {
             NodeDataCache.UpdatePorts(this, ports);
         }
 
@@ -149,14 +153,14 @@ namespace XNode {
         /// <summary> Convenience function. </summary>
         /// <seealso cref="AddInstancePort"/>
         /// <seealso cref="AddInstanceInput"/>
-        public NodePort AddDynamicOutput(Type type, Node.ConnectionType connectionType = Node.ConnectionType.Multiple, Node.TypeConstraint typeConstraint = TypeConstraint.None, string fieldName = null) {
-            return AddDynamicPort(type, NodePort.IO.Output, connectionType, typeConstraint, fieldName);
+        public NodePort AddDynamicOutput(Type type, Node.ConnectionType connectionType = Node.ConnectionType.Multiple, Node.TypeConstraint typeConstraint = TypeConstraint.None, string fieldName = null, bool sameLine = false, bool hideLabel = false, bool useTrianglePortHandle = false) {
+            return AddDynamicPort(type, NodePort.IO.Output, connectionType, typeConstraint, fieldName, sameLine, hideLabel, useTrianglePortHandle);
         }
 
         /// <summary> Add a dynamic, serialized port to this node. </summary>
         /// <seealso cref="AddDynamicInput"/>
         /// <seealso cref="AddDynamicOutput"/>
-        private NodePort AddDynamicPort(Type type, NodePort.IO direction, Node.ConnectionType connectionType = Node.ConnectionType.Multiple, Node.TypeConstraint typeConstraint = TypeConstraint.None, string fieldName = null) {
+        private NodePort AddDynamicPort(Type type, NodePort.IO direction, Node.ConnectionType connectionType = Node.ConnectionType.Multiple, Node.TypeConstraint typeConstraint = TypeConstraint.None, string fieldName = null, bool sameLine = false, bool hideLabel = false, bool useTrianglePortHandle = false) {
             if (fieldName == null) {
                 fieldName = "dynamicInput_0";
                 int i = 0;
@@ -165,7 +169,7 @@ namespace XNode {
                 Debug.LogWarning("Port '" + fieldName + "' already exists in " + name, this);
                 return ports[fieldName];
             }
-            NodePort port = new NodePort(fieldName, type, direction, connectionType, typeConstraint, this);
+            NodePort port = new NodePort(fieldName, type, direction, connectionType, typeConstraint, this, sameLine, hideLabel, useTrianglePortHandle);
             ports.Add(fieldName, port);
             return port;
         }
@@ -203,6 +207,22 @@ namespace XNode {
             else return port;
         }
 
+        public NodePort GetOutputPort<T>(string fieldName) {
+            NodePort port = GetPort<T>(fieldName);
+            if (port == null || port.direction != NodePort.IO.Output)
+                return null;
+            else
+                return port;
+        }
+
+        public NodePort GetOutputPort(string fieldName, Type fieldType) {
+            NodePort port = GetPort(fieldName, fieldType);
+            if (port == null || port.direction != NodePort.IO.Output)
+                return null;
+            else
+                return port;
+        }
+
         /// <summary> Returns input port which matches fieldName </summary>
         public NodePort GetInputPort(string fieldName) {
             NodePort port = GetPort(fieldName);
@@ -217,6 +237,22 @@ namespace XNode {
             else return null;
         }
 
+        public NodePort GetPort<T>(string fieldName) {
+            NodePort port;
+            if (ports.TryGetValue(fieldName, out port) && port.ValueType == typeof(T) )
+                return port;
+            else
+                return null;
+        }
+
+        public NodePort GetPort(string fieldName, Type fieldType) {
+            NodePort port;
+            if (ports.TryGetValue(fieldName, out port) && port.ValueType == fieldType)
+                return port;
+            else
+                return null;
+        }
+
         public bool HasPort(string fieldName) {
             return ports.ContainsKey(fieldName);
         }
@@ -226,27 +262,26 @@ namespace XNode {
         /// <summary> Return input value for a specified port. Returns fallback value if no ports are connected </summary>
         /// <param name="fieldName">Field name of requested input port</param>
         /// <param name="fallback">If no ports are connected, this value will be returned</param>
-        public T GetInputValue<T>(string fieldName, T fallback = default(T)) {
+        public T GetInputValue<T>(IDictionary<string, object> context, string fieldName, T fallback = default(T)) {
             NodePort port = GetPort(fieldName);
-            if (port != null && port.IsConnected) return port.GetInputValue<T>();
+            if (port != null && port.IsConnected) return port.GetInputValue<T>(context);
             else return fallback;
         }
 
         /// <summary> Return all input values for a specified port. Returns fallback value if no ports are connected </summary>
         /// <param name="fieldName">Field name of requested input port</param>
         /// <param name="fallback">If no ports are connected, this value will be returned</param>
-        public T[] GetInputValues<T>(string fieldName, params T[] fallback) {
+        public T[] GetInputValues<T>(IDictionary<string, object> context, string fieldName, params T[] fallback) {
             NodePort port = GetPort(fieldName);
-            if (port != null && port.IsConnected) return port.GetInputValues<T>();
+            if (port != null && port.IsConnected) return port.GetInputValues<T>(context);
             else return fallback;
         }
 
         /// <summary> Returns a value based on requested port output. Should be overridden in all derived nodes with outputs. </summary>
+        /// <param name="context">Any object that the node may need as 'context' to get the value</param>
         /// <param name="port">The requested port.</param>
-        public virtual object GetValue(NodePort port) {
-            Debug.LogWarning("No GetValue(NodePort port) override defined for " + GetType());
-            return null;
-        }
+        public abstract object GetValue(IDictionary<string, object> context, NodePort port);
+
 #endregion
 
         /// <summary> Called after a connection between two <see cref="NodePort"/>s is created </summary>
@@ -406,10 +441,9 @@ namespace XNode {
 
             public void OnAfterDeserialize() {
                 this.Clear();
-#if UNITY_2021_3_OR_NEWER                
+#if UNITY_2021_3_OR_NEWER
                 this.EnsureCapacity(keys.Count);
 #endif
-
                 if (keys.Count != values.Count)
                     throw new System.Exception("there are " + keys.Count + " keys and " + values.Count + " values after deserialization. Make sure that both key and value types are serializable.");
 

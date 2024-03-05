@@ -1,9 +1,9 @@
-﻿{
+{
     "name": "XNodeEditor",
+    "rootNamespace": "",
     "references": [
-        "XNode"
+        "GUID:b8e24fd1eb19b4226afebb2810e3c19b"
     ],
-    "optionalUnityReferences": [],
     "includePlatforms": [
         "Editor"
     ],
@@ -13,5 +13,6 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": []
+    "versionDefines": [],
+    "noEngineReferences": false
 }

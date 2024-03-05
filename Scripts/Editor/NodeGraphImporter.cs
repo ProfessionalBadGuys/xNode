@@ -14,21 +14,22 @@ namespace XNodeEditor {
                 // Skip processing anything without the .asset extension
                 if (Path.GetExtension(path) != ".asset") continue;
 
-                // Get the object that is requested for deletion
-                NodeGraph graph = AssetDatabase.LoadAssetAtPath<NodeGraph>(path);
-                if (graph == null) continue;
+                var graphs = AssetDatabase.LoadAllAssetsAtPath(path).OfType<NodeGraph>();
+                foreach( var graph in graphs) {
+                    // Get attributes
+                    Type graphType = graph.GetType();
+                    NodeGraph.RequireNodeAttribute[] attribs = Array.ConvertAll(
+                        graphType.GetCustomAttributes(typeof(NodeGraph.RequireNodeAttribute), true), x => x as NodeGraph.RequireNodeAttribute);
 
-                // Get attributes
-                Type graphType = graph.GetType();
-                NodeGraph.RequireNodeAttribute[] attribs = Array.ConvertAll(
-                    graphType.GetCustomAttributes(typeof(NodeGraph.RequireNodeAttribute), true), x => x as NodeGraph.RequireNodeAttribute);
+                    Vector2 position = Vector2.zero;
+                    foreach (NodeGraph.RequireNodeAttribute attrib in attribs) {
+                        if (attrib.type0 != null) AddRequired(graph, attrib.type0, ref position);
+                        if (attrib.type1 != null) AddRequired(graph, attrib.type1, ref position);
+                        if (attrib.type2 != null) AddRequired(graph, attrib.type2, ref position);
+                    }
 
-                Vector2 position = Vector2.zero;
-                foreach (NodeGraph.RequireNodeAttribute attrib in attribs) {
-                    if (attrib.type0 != null) AddRequired(graph, attrib.type0, ref position);
-                    if (attrib.type1 != null) AddRequired(graph, attrib.type1, ref position);
-                    if (attrib.type2 != null) AddRequired(graph, attrib.type2, ref position);
-                }
+				}
+
             }
         }
 

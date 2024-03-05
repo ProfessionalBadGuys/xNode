@@ -25,8 +25,15 @@ namespace XNodeEditor {
         protected internal static bool inNodeEditor = false;
 #endif
 
+        private const int charWidth = 10;
+
         public virtual void OnHeaderGUI() {
-            GUILayout.Label(target.name, NodeEditorResources.styles.nodeHeader, GUILayout.Height(30));
+            var maxWidth = GetWidth();
+            var text = target.name;
+            if (target.name.Length * charWidth > maxWidth) {
+                text = target.name.Substring(0, maxWidth / charWidth) + "...";
+			}
+            GUILayout.Label( new GUIContent( text, target.name), NodeEditorResources.styles.nodeHeader, GUILayout.Height(30));
         }
 
         /// <summary> Draws standard field editors for all public fields </summary>
@@ -84,7 +91,7 @@ namespace XNodeEditor {
             // Iterate through dynamic ports and draw them in the order in which they are serialized
             foreach (XNode.NodePort dynamicPort in target.DynamicPorts) {
                 if (NodeEditorGUILayout.IsDynamicPortListPort(dynamicPort)) continue;
-                NodeEditorGUILayout.PortField(dynamicPort);
+                NodeEditorGUILayout.PortField(dynamicPort, serializedObject);
             }
 
             serializedObject.ApplyModifiedProperties();
@@ -95,9 +102,6 @@ namespace XNodeEditor {
                 GUIHelper.ClearRepaintRequest();
                 window.Repaint();
             }
-#endif
-
-#if ODIN_INSPECTOR
             inNodeEditor = false;
 #endif
         }
@@ -169,7 +173,7 @@ namespace XNodeEditor {
         /// <summary> Called after this node's name has changed. </summary>
         public virtual void OnRename() { }
 
-        [AttributeUsage(AttributeTargets.Class)]
+        [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
         public class CustomNodeEditorAttribute : Attribute,
         XNodeEditor.Internal.NodeEditorBase<NodeEditor, NodeEditor.CustomNodeEditorAttribute, XNode.Node>.INodeEditorAttrib {
             private Type inspectedType;

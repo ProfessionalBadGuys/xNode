@@ -24,7 +24,7 @@ namespace XNodeEditor.Internal {
 		private PropertyTree _objectTree;
 		public PropertyTree objectTree {
 			get {
-                if (this._objectTree == null){
+				if (this._objectTree == null) {
 					try {
 						bool wasInEditor = NodeEditor.inNodeEditor;
 						NodeEditor.inNodeEditor = true;
@@ -58,17 +58,17 @@ namespace XNodeEditor.Internal {
 			return editor;
 		}
 
-        public static void DestroyEditor( K target )
-        {
-            if ( target == null ) return;
+        public static void DestroyEditor(K target) {
+            if (target == null)
+                return;
+
             T editor;
-            if ( editors.TryGetValue( target, out editor ) )
-            {
-                editors.Remove( target );
+            if (editors.TryGetValue(target, out editor)) {
+                editors.Remove(target);
             }
         }
 
-		private static Type GetEditorType(Type type) {
+        private static Type GetEditorType(Type type) {
 			if (type == null) return null;
 			if (editorTypes == null) CacheCustomEditors();
 			Type result;
@@ -86,8 +86,9 @@ namespace XNodeEditor.Internal {
 				if (nodeEditors[i].IsAbstract) continue;
 				var attribs = nodeEditors[i].GetCustomAttributes(typeof(A), false);
 				if (attribs == null || attribs.Length == 0) continue;
-				A attrib = attribs[0] as A;
-				editorTypes.Add(attrib.GetInspectedType(), nodeEditors[i]);
+				foreach( A attrib in attribs) {
+					editorTypes.Add(attrib.GetInspectedType(), nodeEditors[i]);
+				}
 			}
 		}
 

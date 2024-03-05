@@ -44,7 +44,7 @@ namespace XNodeEditor {
             [SerializeField] private string typeColorsData = "";
             [NonSerialized] public Dictionary<string, Color> typeColors = new Dictionary<string, Color>();
             [FormerlySerializedAs("noodleType")] public NoodlePath noodlePath = NoodlePath.Curvy;
-            public float noodleThickness = 2f;
+            public float noodleThickness = 5f;
 
             public NoodleStroke noodleStroke = NoodleStroke.Full;
 

@@ -28,14 +28,13 @@ namespace XNodeEditor {
         public XNode.NodePort HoveredPort { get { XNode.NodePort result = hoveredPort; return result; } }
         /// <summary> Return the Hovered node or null if not exist </summary>
         public XNode.Node HoveredNode { get { XNode.Node result = hoveredNode; return result; } }
-
         private XNode.Node hoveredNode = null;
         [NonSerialized] public XNode.NodePort hoveredPort = null;
-        [NonSerialized] private XNode.NodePort draggedOutput = null;
+		[NonSerialized] private XNode.NodePort draggedOutput = null;
+        public XNode.NodePort DraggedOutputTarget => draggedOutputTarget;
         [NonSerialized] private XNode.NodePort draggedOutputTarget = null;
         [NonSerialized] private XNode.NodePort autoConnectOutput = null;
         [NonSerialized] private List<Vector2> draggedOutputReroutes = new List<Vector2>();
-
         private RerouteReference hoveredReroute = new RerouteReference();
         public List<RerouteReference> selectedReroutes = new List<RerouteReference>();
         private Vector2 dragBoxStart;
@@ -45,6 +44,9 @@ namespace XNodeEditor {
         private bool isDoubleClick = false;
         private Vector2 lastMousePosition;
         private float dragThreshold = 1f;
+
+        [NonSerialized] public UnityEngine.Object selectedNodeRunnerUnityObject;
+        [NonSerialized] public IDictionary<string, object> selectedContext;
 
         public void Controls() {
             wantsMouseMove = true;
@@ -233,10 +235,24 @@ namespace XNodeEditor {
                                     EditorUtility.SetDirty(graph);
                                 }
                             }
-                            // Open context menu for auto-connection if there is no target node
-                            else if (draggedOutputTarget == null && NodeEditorPreferences.GetSettings().dragToCreate && autoConnectOutput != null) {
+							// Attempt to auto-connect to the hovered node
+							else if (IsHoveringNode && draggedOutput.node!=hoveredNode && hoveredNode.Inputs.Any(input => !input.IsConnected && !draggedOutput.IsConnectedTo(input) && draggedOutput.CanConnectTo(input) ) ) {
+                                var inputTarget = hoveredNode.Inputs.First(input => !input.IsConnected && !draggedOutput.IsConnectedTo(input) && draggedOutput.CanConnectTo(input));
+								draggedOutput.Connect(inputTarget);
+
+								// ConnectionIndex can be -1 if the connection is removed instantly after creation
+								int connectionIndex = draggedOutput.GetConnectionIndex(inputTarget);
+								if (connectionIndex != -1) {
+									draggedOutput.GetReroutePoints(connectionIndex).AddRange(draggedOutputReroutes);
+									if (NodeEditor.onUpdateNode != null)
+										NodeEditor.onUpdateNode(hoveredNode);
+									EditorUtility.SetDirty(graph);
+								}
+							}
+							// Open context menu for auto-connection if there is no target node
+							else if (draggedOutputTarget == null && NodeEditorPreferences.GetSettings().dragToCreate && autoConnectOutput != null) {
                                 GenericMenu menu = new GenericMenu();
-                                graphEditor.AddContextMenuItems(menu, draggedOutput.ValueType);
+                                graphEditor.AddContextMenuItemsForNewNodes(menu, draggedOutput.ValueType);
                                 menu.DropDown(new Rect(Event.current.mousePosition, Vector2.zero));
                             }
                             //Release dragged connection
@@ -292,13 +308,15 @@ namespace XNodeEditor {
                                 if (!Selection.Contains(hoveredNode)) SelectNode(hoveredNode, false);
                                 autoConnectOutput = null;
                                 GenericMenu menu = new GenericMenu();
-                                NodeEditor.GetEditor(hoveredNode, this).AddContextMenuItems(menu);
-                                menu.DropDown(new Rect(Event.current.mousePosition, Vector2.zero));
+                                var hoveredNodeEditor = NodeEditor.GetEditor(hoveredNode, this);
+                                hoveredNodeEditor.AddContextMenuItems(menu);
+								graphEditor.AddContextMenuItemsForSelectedNodes(menu);
+								menu.DropDown(new Rect(Event.current.mousePosition, Vector2.zero));
                                 e.Use(); // Fixes copy/paste context menu appearing in Unity 5.6.6f2 - doesn't occur in 2018.3.2f1 Probably needs to be used in other places.
                             } else if (!IsHoveringNode) {
                                 autoConnectOutput = null;
                                 GenericMenu menu = new GenericMenu();
-                                graphEditor.AddContextMenuItems(menu);
+                                graphEditor.AddContextMenuItemsForNewNodes(menu);
                                 menu.DropDown(new Rect(Event.current.mousePosition, Vector2.zero));
                             }
                         }
@@ -341,12 +359,14 @@ namespace XNodeEditor {
                         e.Use();
                     } else if (e.commandName == "Copy") {
                         if (!EditorGUIUtility.editingTextField) {
-                            if (e.type == EventType.ExecuteCommand) CopySelectedNodes();
+                            if (e.type == EventType.ExecuteCommand)
+                                CopySelectedNodes();
                             e.Use();
                         }
                     } else if (e.commandName == "Paste") {
                         if (!EditorGUIUtility.editingTextField) {
-                            if (e.type == EventType.ExecuteCommand) PasteNodes(WindowToGridPosition(lastMousePosition));
+                            if (e.type == EventType.ExecuteCommand)
+                                PasteNodes(WindowToGridPosition(lastMousePosition));
                             e.Use();
                         }
                     }
@@ -518,7 +538,6 @@ namespace XNodeEditor {
                 else gridPoints.Add(WindowToGridPosition(Event.current.mousePosition));
 
                 DrawNoodle(gradient, path, stroke, thickness, gridPoints);
-
                 GUIStyle portStyle = NodeEditorWindow.current.graphEditor.GetPortStyle(draggedOutput);
                 Color bgcol = Color.black;
                 Color frcol = gradient.colorKeys[0].color;
@@ -555,7 +574,8 @@ namespace XNodeEditor {
 
             // Find compatible input port
             XNode.NodePort inputPort = node.Ports.FirstOrDefault(x => x.IsInput && graphEditor.CanConnect(autoConnectOutput, x));
-            if (inputPort != null) autoConnectOutput.Connect(inputPort);
+            if (inputPort != null)
+                autoConnectOutput.Connect(inputPort);
 
             // Save changes
             EditorUtility.SetDirty(graph);

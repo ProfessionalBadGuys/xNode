@@ -41,13 +41,17 @@ namespace XNode {
         public Node node { get { return _node; } }
         public bool IsDynamic { get { return _dynamic; } }
         public bool IsStatic { get { return !_dynamic; } }
+        public bool DrawOnSameLine { get { return _sameLine; } }
+        public bool HideLabel { get { return _hideLabel; } }
+        public bool UseTriangleHandle { get { return _useTriangleHandle; } set { _useTriangleHandle = value; } }
         public Type ValueType {
             get {
                 if (valueType == null && !string.IsNullOrEmpty(_typeQualifiedName)) valueType = Type.GetType(_typeQualifiedName, false);
                 return valueType;
             }
             set {
-                if (valueType == value) return;
+                if (valueType == value)
+                    return;
                 valueType = value;
                 if (value != null) _typeQualifiedName = NodeDataCache.GetTypeQualifiedName(value);
             }
@@ -62,9 +66,20 @@ namespace XNode {
         [SerializeField] private Node.ConnectionType _connectionType;
         [SerializeField] private Node.TypeConstraint _typeConstraint;
         [SerializeField] private bool _dynamic;
+        [SerializeField] private bool _sameLine;
+        [SerializeField] private bool _hideLabel;
+        [SerializeField] private bool _useTriangleHandle = false;
 
-        /// <summary> Construct a static targetless nodeport. Used as a template. </summary>
-        public NodePort(FieldInfo fieldInfo) {
+        #region XNODE_DYNAMIC_PORT_PROPERTY_FIELD
+        [SerializeField] private UnityEngine.Object dynamicValueUnityObject = null;
+        [SerializeField] private bool dynamicValueBool = false;
+        [SerializeField] private string dynamicValueString = null;
+        [SerializeField] private int dynamicValueInt = 0;
+        [SerializeField] private float dynamicValueFloat = 0f;
+		#endregion
+
+		/// <summary> Construct a static targetless nodeport. Used as a template. </summary>
+		public NodePort(FieldInfo fieldInfo) {
             _fieldName = fieldInfo.Name;
             ValueType = fieldInfo.FieldType;
             _dynamic = false;
@@ -80,7 +95,7 @@ namespace XNode {
                     _typeConstraint = (attribs[i] as Node.OutputAttribute).typeConstraint;
                 }
                 // Override ValueType of the Port
-                if(attribs[i] is PortTypeOverrideAttribute) {
+                if (attribs[i] is PortTypeOverrideAttribute) {
                     ValueType = (attribs[i] as PortTypeOverrideAttribute).type;
                 }
             }
@@ -98,7 +113,7 @@ namespace XNode {
         }
 
         /// <summary> Construct a dynamic port. Dynamic ports are not forgotten on reimport, and is ideal for runtime-created ports. </summary>
-        public NodePort(string fieldName, Type type, IO direction, Node.ConnectionType connectionType, Node.TypeConstraint typeConstraint, Node node) {
+        public NodePort(string fieldName, Type type, IO direction, Node.ConnectionType connectionType, Node.TypeConstraint typeConstraint, Node node, bool sameLine = false, bool hideLabel = false, bool useTrianglePortHandle = false) {
             _fieldName = fieldName;
             this.ValueType = type;
             _direction = direction;
@@ -106,6 +121,9 @@ namespace XNode {
             _dynamic = true;
             _connectionType = connectionType;
             _typeConstraint = typeConstraint;
+            _sameLine = sameLine;
+            _hideLabel = hideLabel;
+            _useTriangleHandle = useTrianglePortHandle;
         }
 
         /// <summary> Checks all connections for invalid references, and removes them. </summary>
@@ -121,22 +139,45 @@ namespace XNode {
 
         /// <summary> Return the output value of this node through its parent nodes GetValue override method. </summary>
         /// <returns> <see cref="Node.GetValue(NodePort)"/> </returns>
-        public object GetOutputValue() {
+        public object GetOutputValue(IDictionary<string, object> context) {
             if (direction == IO.Input) return null;
-            return node.GetValue(this);
+            return node.GetValue(context, this);
         }
 
         /// <summary> Return the output value of the first connected port. Returns null if none found or invalid.</summary>
         /// <returns> <see cref="NodePort.GetOutputValue"/> </returns>
-        public object GetInputValue() {
+        public object GetInputValue(IDictionary<string, object> context) {
             NodePort connectedPort = Connection;
-            if (connectedPort == null) return null;
-            return connectedPort.GetOutputValue();
+            if (connectedPort != null) {
+                return connectedPort.GetOutputValue(context);
+            }
+			#region XNODE_DYNAMIC_PORT_PROPERTY_FIELD
+			if (typeof(UnityEngine.Object).IsAssignableFrom(ValueType)) {
+                return dynamicValueUnityObject;
+            }
+            else
+            if (typeof(string).IsAssignableFrom(ValueType)) {
+                return dynamicValueString;
+            }
+            else
+            if (typeof(bool).IsAssignableFrom(ValueType)) {
+                return dynamicValueBool;
+            }
+            else
+            if (typeof(int).IsAssignableFrom(ValueType)) {
+                return dynamicValueInt;
+            }
+            else
+            if (typeof(float).IsAssignableFrom(ValueType)) {
+                return dynamicValueFloat;
+            }
+			#endregion
+			return null;
         }
 
         /// <summary> Return the output values of all connected ports. </summary>
         /// <returns> <see cref="NodePort.GetOutputValue"/> </returns>
-        public object[] GetInputValues() {
+        public object[] GetInputValues(IDictionary<string, object> context) {
             object[] objs = new object[ConnectionCount];
             for (int i = 0; i < ConnectionCount; i++) {
                 NodePort connectedPort = connections[i].Port;
@@ -145,22 +186,22 @@ namespace XNode {
                     i--;
                     continue;
                 }
-                objs[i] = connectedPort.GetOutputValue();
+                objs[i] = connectedPort.GetOutputValue(context);
             }
             return objs;
         }
 
         /// <summary> Return the output value of the first connected port. Returns null if none found or invalid. </summary>
         /// <returns> <see cref="NodePort.GetOutputValue"/> </returns>
-        public T GetInputValue<T>() {
-            object obj = GetInputValue();
+        public T GetInputValue<T>(IDictionary<string, object> context) {
+            object obj = GetInputValue(context);
             return obj is T ? (T) obj : default(T);
         }
 
         /// <summary> Return the output values of all connected ports. </summary>
         /// <returns> <see cref="NodePort.GetOutputValue"/> </returns>
-        public T[] GetInputValues<T>() {
-            object[] objs = GetInputValues();
+        public T[] GetInputValues<T>(IDictionary<string, object> context) {
+            object[] objs = GetInputValues(context);
             T[] ts = new T[objs.Length];
             for (int i = 0; i < objs.Length; i++) {
                 if (objs[i] is T) ts[i] = (T) objs[i];
@@ -170,8 +211,8 @@ namespace XNode {
 
         /// <summary> Return true if port is connected and has a valid input. </summary>
         /// <returns> <see cref="NodePort.GetOutputValue"/> </returns>
-        public bool TryGetInputValue<T>(out T value) {
-            object obj = GetInputValue();
+        public bool TryGetInputValue<T>(IDictionary<string, object> context, out T value) {
+            object obj = GetInputValue(context);
             if (obj is T) {
                 value = (T) obj;
                 return true;
@@ -179,30 +220,6 @@ namespace XNode {
                 value = default(T);
                 return false;
             }
-        }
-
-        /// <summary> Return the sum of all inputs. </summary>
-        /// <returns> <see cref="NodePort.GetOutputValue"/> </returns>
-        public float GetInputSum(float fallback) {
-            object[] objs = GetInputValues();
-            if (objs.Length == 0) return fallback;
-            float result = 0;
-            for (int i = 0; i < objs.Length; i++) {
-                if (objs[i] is float) result += (float) objs[i];
-            }
-            return result;
-        }
-
-        /// <summary> Return the sum of all inputs. </summary>
-        /// <returns> <see cref="NodePort.GetOutputValue"/> </returns>
-        public int GetInputSum(int fallback) {
-            object[] objs = GetInputValues();
-            if (objs.Length == 0) return fallback;
-            int result = 0;
-            for (int i = 0; i < objs.Length; i++) {
-                if (objs[i] is int) result += (int) objs[i];
-            }
-            return result;
         }
 
         /// <summary> Connect this <see cref="NodePort"/> to another </summary>
@@ -278,12 +295,14 @@ namespace XNode {
             if (input.typeConstraint == XNode.Node.TypeConstraint.Inherited && !input.ValueType.IsAssignableFrom(output.ValueType)) return false;
             if (input.typeConstraint == XNode.Node.TypeConstraint.Strict && input.ValueType != output.ValueType) return false;
             if (input.typeConstraint == XNode.Node.TypeConstraint.InheritedInverse && !output.ValueType.IsAssignableFrom(input.ValueType)) return false;
-            if (input.typeConstraint == XNode.Node.TypeConstraint.InheritedAny && !input.ValueType.IsAssignableFrom(output.ValueType) && !output.ValueType.IsAssignableFrom(input.ValueType)) return false;
+            if (input.typeConstraint == XNode.Node.TypeConstraint.InheritedAny && !input.ValueType.IsAssignableFrom(output.ValueType) && !output.ValueType.IsAssignableFrom(input.ValueType))
+                return false;
             // Check output type constraints
             if (output.typeConstraint == XNode.Node.TypeConstraint.Inherited && !input.ValueType.IsAssignableFrom(output.ValueType)) return false;
             if (output.typeConstraint == XNode.Node.TypeConstraint.Strict && input.ValueType != output.ValueType) return false;
             if (output.typeConstraint == XNode.Node.TypeConstraint.InheritedInverse && !output.ValueType.IsAssignableFrom(input.ValueType)) return false;
-            if (output.typeConstraint == XNode.Node.TypeConstraint.InheritedAny && !input.ValueType.IsAssignableFrom(output.ValueType) && !output.ValueType.IsAssignableFrom(input.ValueType)) return false;
+            if (output.typeConstraint == XNode.Node.TypeConstraint.InheritedAny && !input.ValueType.IsAssignableFrom(output.ValueType) && !output.ValueType.IsAssignableFrom(input.ValueType))
+                return false;
             // Success
             return true;
         }
@@ -326,8 +345,16 @@ namespace XNode {
         }
 
         public void ClearConnections() {
+			if (connections == null) {
+                return;
+			}
             while (connections.Count > 0) {
-                Disconnect(connections[0].Port);
+                if (connections[0] == null) {
+                    connections.RemoveAt(0);
+				}
+                else {
+                    Disconnect(connections[0].Port);
+				}
             }
         }
 
@@ -383,7 +410,7 @@ namespace XNode {
             for (int i = 0; i < connectionCount; i++) {
                 PortConnection connection = targetPort.connections[i];
                 NodePort otherPort = connection.Port;
-                Connect(otherPort);
+				Connect(otherPort);
             }
             ClearConnections();
         }

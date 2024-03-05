@@ -6,6 +6,19 @@
 [![GitHub Wiki](https://img.shields.io/badge/wiki-available-brightgreen.svg)](https://github.com/Siccity/xNode/wiki)
 [![openupm](https://img.shields.io/npm/v/com.github.siccity.xnode?label=openupm&registry_uri=https://package.openupm.com)](https://openupm.com/packages/com.github.siccity.xnode/)
 
+### Professional Bad Guys Fork of xNode
+Key changes or improvements of this fork from the main xNode repo:
+- Nodes and NodePorts have an additional optional parameter when using GetValue() that can be used to pass in string/object pairs, allowing for the given value to have additional context
+- Dynamic ports with certain types support default values (that is, fields come up in the inspector allowing for strings, numbers, etc)
+- SameLine attribute can be applied to ports, which shifts them up vertically in the inspector, allowing tighter control of how they are visualized
+- When dragging/connect ports, attempt to connect to the hovered node
+- Draw simple boxes when zoomed out too far instead of complex node draw calls (Level of detail)
+- Highlight target port when dragging another port onto it (better feedback)
+- Allow for ports to be triangles/arrows
+- Store the last position (pan offset) of a graph within the graph (remembers where we last were looking in that graph)
+- Separate context menus within NodeGraphEditors depending on selected nodes
+
+
 [Downloads](https://github.com/Siccity/xNode/releases) / [Asset Store](http://u3d.as/108S) / [Documentation](https://github.com/Siccity/xNode/wiki)
 
 Support xNode on [Ko-fi](https://ko-fi.com/Z8Z5DYWA) or [Patreon](https://www.patreon.com/thorbrigsted)
@@ -80,7 +93,7 @@ If no source control or package manager is available to you, you can simply copy
 ```csharp
 // public classes deriving from Node are registered as nodes for use within a graph
 public class MathNode : Node {
-    // Adding [Input] or [Output] is all you need to do to register a field as a valid port on your node 
+    // Adding [Input] or [Output] is all you need to do to register a field as a valid port on your node
     [Input] public float a;
     [Input] public float b;
     // The value of an output node field is not used for anything, but could be used for caching output results
@@ -90,7 +103,7 @@ public class MathNode : Node {
     // The value of 'mathType' will be displayed on the node in an editable format, similar to the inspector
     public MathType mathType = MathType.Add;
     public enum MathType { Add, Subtract, Multiply, Divide}
-    
+
     // GetValue should be overridden to return a value for any specified output port
     public override object GetValue(NodePort port) {
 

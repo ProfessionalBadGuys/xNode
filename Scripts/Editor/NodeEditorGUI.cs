@@ -20,14 +20,17 @@ namespace XNodeEditor {
         public event Action onLateGUI;
         private static readonly Vector3[] polyLineTempArray = new Vector3[2];
 
-        protected virtual void OnGUI() {
+        public static bool ForceRepaint { get; set; }
+
+        public virtual void OnGUI() {
             Event e = Event.current;
             Matrix4x4 m = GUI.matrix;
             if (graph == null) return;
             ValidateGraphEditor();
             Controls();
 
-            DrawGrid(position, zoom, panOffset);
+            var rect = new Rect(Vector2.zero, position.size);
+            DrawGrid(rect, zoom, panOffset);
             DrawConnections();
             DrawDraggedConnection();
             DrawNodes();
@@ -42,17 +45,25 @@ namespace XNodeEditor {
             }
 
             GUI.matrix = m;
+
+            if (ForceRepaint) {
+                Repaint();
+                ForceRepaint = false;
+            }
         }
 
-        public static void BeginZoomed(Rect rect, float zoom, float topPadding) {
+		public static void BeginZoomed(Rect rect, float zoom, float topPadding) {
             GUI.EndClip();
 
             GUIUtility.ScaleAroundPivot(Vector2.one / zoom, rect.size * 0.5f);
-            Vector4 padding = new Vector4(0, topPadding, 0, 0);
-            padding *= zoom;
-            GUI.BeginClip(new Rect(-((rect.width * zoom) - rect.width) * 0.5f, -(((rect.height * zoom) - rect.height) * 0.5f) + (topPadding * zoom),
-                rect.width * zoom,
-                rect.height * zoom));
+            var widthZoomed = rect.width * zoom;
+            var heightZoomed = rect.height * zoom;
+            var clipRect = new Rect(
+                -(widthZoomed - rect.width) * 0.5f,
+                -((heightZoomed - rect.height) * 0.5f) + (topPadding * zoom),
+                widthZoomed,
+                heightZoomed);
+            GUI.BeginClip(clipRect);
         }
 
         public static void EndZoomed(Rect rect, float zoom, float topPadding) {
@@ -65,9 +76,6 @@ namespace XNodeEditor {
         }
 
         public void DrawGrid(Rect rect, float zoom, Vector2 panOffset) {
-
-            rect.position = Vector2.zero;
-
             Vector2 center = rect.size / 2f;
             Texture2D gridTex = graphEditor.GetGridTexture();
             Texture2D crossTex = graphEditor.GetSecondaryGridTexture();
@@ -125,10 +133,13 @@ namespace XNodeEditor {
             if (NodeEditorPreferences.GetSettings().createFilter) {
                 contextMenu.AddSeparator("");
 
-                if (hoveredPort.direction == XNode.NodePort.IO.Input)
-                    graphEditor.AddContextMenuItems(contextMenu, hoveredPort.ValueType, XNode.NodePort.IO.Output);
-                else
-                    graphEditor.AddContextMenuItems(contextMenu, hoveredPort.ValueType, XNode.NodePort.IO.Input);
+                if (hoveredPort.direction == XNode.NodePort.IO.Input) {
+                    graphEditor.AddContextMenuItemsForNewNodes(contextMenu, hoveredPort.ValueType, XNode.NodePort.IO.Output);
+                }
+                else {
+                    graphEditor.AddContextMenuItemsForNewNodes(contextMenu, hoveredPort.ValueType, XNode.NodePort.IO.Input);
+                }
+
             }
             contextMenu.DropDown(new Rect(Event.current.mousePosition, Vector2.zero));
             if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
@@ -399,7 +410,7 @@ namespace XNodeEditor {
 
         private void DrawNodes() {
             Event e = Event.current;
-            if (e.type == EventType.Layout) {
+            if (e.type == EventType.Layout || selectionCache == null) {
                 selectionCache = new List<UnityEngine.Object>(Selection.objects);
             }
 
@@ -432,7 +443,7 @@ namespace XNodeEditor {
 
             List<XNode.NodePort> removeEntries = new List<XNode.NodePort>();
 
-            if (e.type == EventType.Layout) culledNodes = new List<XNode.Node>();
+            if (e.type == EventType.Layout || culledNodes == null) culledNodes = new List<XNode.Node>();
             for (int n = 0; n < graph.nodes.Count; n++) {
                 // Skip null nodes. The user could be in the process of renaming scripts, so removing them at this point is not advisable.
                 if (graph.nodes[n] == null) continue;
@@ -457,101 +468,146 @@ namespace XNodeEditor {
 
                 NodeEditor nodeEditor = NodeEditor.GetEditor(node, this);
 
-                NodeEditor.portPositions.Clear();
 
                 // Set default label width. This is potentially overridden in OnBodyGUI
                 EditorGUIUtility.labelWidth = 84;
 
                 //Get node position
                 Vector2 nodePos = GridToWindowPositionNoClipped(node.position);
+                Vector2 nodeSize;
 
-                GUILayout.BeginArea(new Rect(nodePos, new Vector2(nodeEditor.GetWidth(), 4000)));
+				NodeEditor.portPositions.Clear();
 
-                bool selected = selectionCache.Contains(graph.nodes[n]);
+                if ( zoom<3 || !nodeSizes.ContainsKey(node)) {
+                    
+                    GUILayout.BeginArea(new Rect(nodePos, new Vector2(nodeEditor.GetWidth(), 4000)));
 
-                if (selected) {
-                    GUIStyle style = new GUIStyle(nodeEditor.GetBodyStyle());
-                    GUIStyle highlightStyle = new GUIStyle(nodeEditor.GetBodyHighlightStyle());
-                    highlightStyle.padding = style.padding;
-                    style.padding = new RectOffset();
-                    GUI.color = nodeEditor.GetTint();
-                    GUILayout.BeginVertical(style);
-                    GUI.color = NodeEditorPreferences.GetSettings().highlightColor;
-                    GUILayout.BeginVertical(new GUIStyle(highlightStyle));
-                } else {
-                    GUIStyle style = new GUIStyle(nodeEditor.GetBodyStyle());
-                    GUI.color = nodeEditor.GetTint();
-                    GUILayout.BeginVertical(style);
-                }
+                    bool selected = selectionCache.Contains(node);
 
-                GUI.color = guiColor;
-                EditorGUI.BeginChangeCheck();
+                    if (selected) {
+                        GUIStyle style = new GUIStyle(nodeEditor.GetBodyStyle());
+                        GUIStyle highlightStyle = new GUIStyle(nodeEditor.GetBodyHighlightStyle());
+                        highlightStyle.padding = style.padding;
+                        style.padding = new RectOffset();
+                        GUI.color = nodeEditor.GetTint();
+                        GUILayout.BeginVertical(style);
+                        GUI.color = NodeEditorPreferences.GetSettings().highlightColor;
+                        GUILayout.BeginVertical(highlightStyle);
+                    } else {
+                        GUIStyle style = new GUIStyle(nodeEditor.GetBodyStyle());
+                        GUI.color = nodeEditor.GetTint();
+                        GUILayout.BeginVertical(style);
+                    }
 
-                //Draw node contents
-                nodeEditor.OnHeaderGUI();
-                nodeEditor.OnBodyGUI();
+                    GUI.color = guiColor;
+					EditorGUI.BeginChangeCheck();
 
-                //If user changed a value, notify other scripts through onUpdateNode
-                if (EditorGUI.EndChangeCheck()) {
-                    if (NodeEditor.onUpdateNode != null) NodeEditor.onUpdateNode(node);
-                    EditorUtility.SetDirty(node);
-                    nodeEditor.serializedObject.ApplyModifiedProperties();
-                }
+					//Draw node contents
+					nodeEditor.OnHeaderGUI();
+					nodeEditor.OnBodyGUI();
 
-                GUILayout.EndVertical();
+					//If user changed a value, notify other scripts through onUpdateNode
+					if (EditorGUI.EndChangeCheck()) {
+						if (NodeEditor.onUpdateNode != null)
+							NodeEditor.onUpdateNode(node);
+						EditorUtility.SetDirty(node);
+						nodeEditor.serializedObject.ApplyModifiedProperties();
+					}
 
-                //Cache data about the node for next frame
-                if (e.type == EventType.Repaint) {
-                    Vector2 size = GUILayoutUtility.GetLastRect().size;
-                    if (nodeSizes.ContainsKey(node)) nodeSizes[node] = size;
-                    else nodeSizes.Add(node, size);
+				    GUILayout.EndVertical();
 
-                    foreach (var kvp in NodeEditor.portPositions) {
-                        Vector2 portHandlePos = kvp.Value;
-                        portHandlePos += node.position;
-                        Rect rect = new Rect(portHandlePos.x - 8, portHandlePos.y - 8, 16, 16);
-                        portConnectionPoints[kvp.Key] = rect;
+                    //Cache data about the node for next frame
+                    if (e.type == EventType.Repaint) {
+                        Vector2 size = GUILayoutUtility.GetLastRect().size;
+                        if (nodeSizes.ContainsKey(node)) nodeSizes[node] = size;
+                        else nodeSizes.Add(node, size);
+
+                        foreach (var kvp in NodeEditor.portPositions) {
+                            Vector2 portHandlePos = kvp.Value;
+                            portHandlePos += node.position;
+                            Rect rect = new Rect(portHandlePos.x - 8, portHandlePos.y - 8, 16, 16);
+                            portConnectionPoints[kvp.Key] = rect;
+                        }
+                    }
+
+                    if (selected) GUILayout.EndVertical();
+
+					nodeSize = GUILayoutUtility.GetLastRect().size;
+
+					GUILayout.EndArea();
+                    
+				}
+                else {
+					nodeSize = nodeSizes[node];
+
+					bool selected = selectionCache.Contains(node);
+
+					if (selected) {
+                        var borderSize = new Vector2(8, 8);
+						EditorGUI.DrawRect(new Rect(nodePos- borderSize, nodeSize+ borderSize*2), NodeEditorPreferences.GetSettings().highlightColor);
+					}
+
+					EditorGUI.DrawRect(new Rect(nodePos, nodeSize), nodeEditor.GetTint());
+
+                    //Cache data about the node for next frame
+                    if (e.type == EventType.Repaint) {
+                        //Check input ports
+                        foreach (XNode.NodePort input in node.Inputs) {
+                            var portHandlePos = node.position + new Vector2(0, nodeSize.y*0.5f);
+                            Rect rect = new Rect(portHandlePos.x - 8, portHandlePos.y - 8, 16, 16);
+                            portConnectionPoints[input] = rect;
+                        }
+                        //Check all output ports
+                        var count = 0;
+                        foreach (XNode.NodePort output in node.Outputs) {
+                            var portHandlePos = node.position + new Vector2(nodeSize.x, 32 + count * 32);
+                            Rect rect = new Rect(portHandlePos.x - 8, portHandlePos.y - 8, 16, 16);
+                            portConnectionPoints[output] = rect;
+                            count++;
+                        }
                     }
                 }
 
-                if (selected) GUILayout.EndVertical();
+				if (e.type != EventType.Layout) {
+					//Check if we are hovering this node
+					Rect windowRect = new Rect(nodePos, nodeSize);
+					if (windowRect.Contains(mousePos))
+						hoveredNode = node;
 
-                if (e.type != EventType.Layout) {
-                    //Check if we are hovering this node
-                    Vector2 nodeSize = GUILayoutUtility.GetLastRect().size;
-                    Rect windowRect = new Rect(nodePos, nodeSize);
-                    if (windowRect.Contains(mousePos)) hoveredNode = node;
+					//If dragging a selection box, add nodes inside to selection
+					if (currentActivity == NodeActivity.DragGrid) {
+						if (windowRect.Overlaps(selectionBox))
+							preSelection.Add(node);
+					}
 
-                    //If dragging a selection box, add nodes inside to selection
-                    if (currentActivity == NodeActivity.DragGrid) {
-                        if (windowRect.Overlaps(selectionBox)) preSelection.Add(node);
-                    }
-
-                    //Check if we are hovering any of this nodes ports
-                    //Check input ports
-                    foreach (XNode.NodePort input in node.Inputs) {
-                        //Check if port rect is available
-                        if (!portConnectionPoints.ContainsKey(input)) continue;
-                        Rect r = GridToWindowRectNoClipped(portConnectionPoints[input]);
-                        if (r.Contains(mousePos)) hoveredPort = input;
-                    }
-                    //Check all output ports
-                    foreach (XNode.NodePort output in node.Outputs) {
-                        //Check if port rect is available
-                        if (!portConnectionPoints.ContainsKey(output)) continue;
-                        Rect r = GridToWindowRectNoClipped(portConnectionPoints[output]);
-                        if (r.Contains(mousePos)) hoveredPort = output;
-                    }
-                }
-
-                GUILayout.EndArea();
-            }
+					//Check if we are hovering any of this nodes ports
+					//Check input ports
+					foreach (XNode.NodePort input in node.Inputs) {
+						//Check if port rect is available
+						if (!portConnectionPoints.ContainsKey(input))
+							continue;
+						Rect r = GridToWindowRectNoClipped(portConnectionPoints[input]);
+						if (r.Contains(mousePos)) {
+							hoveredPort = input;
+						}
+					}
+					//Check all output ports
+					foreach (XNode.NodePort output in node.Outputs) {
+						//Check if port rect is available
+						if (!portConnectionPoints.ContainsKey(output))
+							continue;
+						Rect r = GridToWindowRectNoClipped(portConnectionPoints[output]);
+						if (r.Contains(mousePos))
+							hoveredPort = output;
+					}
+				}
+			}
 
             if (e.type != EventType.Layout && currentActivity == NodeActivity.DragGrid) Selection.objects = preSelection.ToArray();
             EndZoomed(position, zoom, topPadding);
 
-            //If a change in is detected in the selected node, call OnValidate method.
-            //This is done through reflection because OnValidate is only relevant in editor,
+            //If a change in is detected in the selected node, call OnValidate method. 
+            //This is done through reflection because OnValidate is only relevant in editor, 
             //and thus, the code should not be included in build.
             if (onValidate != null && EditorGUI.EndChangeCheck()) onValidate.Invoke(Selection.activeObject, null);
         }
@@ -570,21 +626,16 @@ namespace XNodeEditor {
         }
 
         private void DrawTooltip() {
-            if (!NodeEditorPreferences.GetSettings().portTooltips || graphEditor == null)
-                return;
-            string tooltip = null;
-            if (hoveredPort != null) {
-                tooltip = graphEditor.GetPortTooltip(hoveredPort);
-            } else if (hoveredNode != null && IsHoveringNode && IsHoveringTitle(hoveredNode)) {
-                tooltip = NodeEditor.GetEditor(hoveredNode, this).GetHeaderTooltip();
+            if (hoveredPort != null && NodeEditorPreferences.GetSettings().portTooltips && graphEditor != null) {
+                string tooltip = graphEditor.GetPortTooltip(hoveredPort);
+                if (string.IsNullOrEmpty(tooltip)) return;
+                GUIContent content = new GUIContent(tooltip);
+                Vector2 size = NodeEditorResources.styles.tooltip.CalcSize(content);
+                size.x += 8;
+                Rect rect = new Rect(Event.current.mousePosition - (size), size);
+                EditorGUI.LabelField(rect, content, NodeEditorResources.styles.tooltip);
+                Repaint();
             }
-            if (string.IsNullOrEmpty(tooltip)) return;
-            GUIContent content = new GUIContent(tooltip);
-            Vector2 size = NodeEditorResources.styles.tooltip.CalcSize(content);
-            size.x += 8;
-            Rect rect = new Rect(Event.current.mousePosition - (size), size);
-            EditorGUI.LabelField(rect, content, NodeEditorResources.styles.tooltip);
-            Repaint();
         }
     }
 }

@@ -89,7 +89,11 @@ namespace XNodeEditor {
             if (graphEditor != null) graphEditor.OnWindowFocusLost();
         }
 
-        [InitializeOnLoadMethod]
+		private void OnInspectorUpdate() {
+            Repaint();
+		}
+
+		[InitializeOnLoadMethod]
         private static void OnLoad() {
             Selection.selectionChanged -= OnSelectionChanged;
             Selection.selectionChanged += OnSelectionChanged;
@@ -99,12 +103,13 @@ namespace XNodeEditor {
         private static void OnSelectionChanged() {
             XNode.NodeGraph nodeGraph = Selection.activeObject as XNode.NodeGraph;
             if (nodeGraph && !AssetDatabase.Contains(nodeGraph)) {
-                if (NodeEditorPreferences.GetSettings().openOnCreate) Open(nodeGraph);
+                if (NodeEditorPreferences.GetSettings().openOnCreate)
+                    Open(nodeGraph);
             }
         }
 
         /// <summary> Make sure the graph editor is assigned and to the right object </summary>
-        private void ValidateGraphEditor() {
+        public void ValidateGraphEditor() {
             NodeGraphEditor graphEditor = NodeGraphEditor.GetEditor(graph, this);
             if (this.graphEditor != graphEditor && graphEditor != null) {
                 this.graphEditor = graphEditor;
@@ -177,6 +182,7 @@ namespace XNodeEditor {
                 selection.Add(node);
                 Selection.objects = selection.ToArray();
             } else Selection.objects = new Object[] { node };
+            GUI.FocusControl(null);
         }
 
         public void DeselectNode(XNode.Node node) {
@@ -200,8 +206,12 @@ namespace XNodeEditor {
             if (!graph) return null;
 
             NodeEditorWindow w = GetWindow(typeof(NodeEditorWindow), false, "xNode", true) as NodeEditorWindow;
+            if (w.graph != null) {
+                w.graph.panOffset = w.panOffset;
+            }
             w.wantsMouseMove = true;
             w.graph = graph;
+            w.panOffset = graph.panOffset;
             return w;
         }
 
