@@ -17,6 +17,7 @@ Key changes or improvements of this fork from the main xNode repo:
 - Allow for ports to be triangles/arrows
 - Store the last position (pan offset) of a graph within the graph (remembers where we last were looking in that graph)
 - Separate context menus within NodeGraphEditors depending on selected nodes
+- ResizableNode is an abstract child of Node.cs that can be resized by selecting and dragging the bottom-right corner of the node
 
 
 [Downloads](https://github.com/Siccity/xNode/releases) / [Asset Store](http://u3d.as/108S) / [Documentation](https://github.com/Siccity/xNode/wiki)

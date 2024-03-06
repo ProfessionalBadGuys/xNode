@@ -15,7 +15,6 @@ namespace XNode {
         private float lastDragY = 0f;
         private int startingWidth = 0;
         private int startingHeight = 0;
-        //private Vector2 scrollPos;
 
         protected virtual SerializedProperty GetWidthProperty() {
             var name = ResizableNode.WidthFieldName;
@@ -30,14 +29,12 @@ namespace XNode {
         public override void OnBodyGUI() {
 
             var heightProperty = GetHeightProperty();
-            //scrollPos = EditorGUILayout.BeginScrollView(scrollPos, GUILayout.Height(heightProperty.intValue));
             base.OnBodyGUI();
-            //EditorGUILayout.EndScrollView();
             EditorGUILayout.Space(heightProperty.intValue);
             DrawResizableButton();
 
         }
-        public void DrawResizableButton() {
+        public void DrawResizableButton(int minWidth = 80, int minHeight = 0) {
 
             var selected = Selection.objects.Contains(target);
 
@@ -70,12 +67,12 @@ namespace XNode {
 
                     var differenceX = lastDragX - pos.x;
                     var widthProperty = GetWidthProperty();
-                    widthProperty.intValue = Mathf.Max(80, startingWidth - (int)differenceX);
+                    widthProperty.intValue = Mathf.Max(minWidth, startingWidth - (int)differenceX);
 
                     var differenceY = lastDragY - pos.y;
 
                     var heightProperty = GetHeightProperty();
-                    heightProperty.intValue = Mathf.Max(0, startingHeight - (int)differenceY);
+                    heightProperty.intValue = Mathf.Max(minHeight, startingHeight - (int)differenceY);
 #if ODIN_INSPECTOR
 					GUIHelper.RepaintRequested = true;
 #endif
@@ -87,6 +84,9 @@ namespace XNode {
 
         public override int GetWidth() {
             var widthProperty = GetWidthProperty();
+            if (widthProperty.intValue < 0) {
+                widthProperty.intValue = base.GetWidth();
+            }
             return widthProperty.intValue;
         }
 
