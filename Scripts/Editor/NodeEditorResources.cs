@@ -12,9 +12,7 @@ namespace XNodeEditor {
         private static Texture2D _nodeBody;
         public static Texture2D nodeHighlight { get { return _nodeHighlight != null ? _nodeHighlight : _nodeHighlight = Resources.Load<Texture2D>("xnode_node_highlight"); } }
         private static Texture2D _nodeHighlight;
-        public static Texture2D triangle { get { return _triangle != null ? _triangle : _triangle = Resources.Load<Texture2D>("xnode_triangle"); } }
-        private static Texture2D _triangle;
-
+        
         // Styles
         public static Styles styles { get { return _styles != null ? _styles : _styles = new Styles(); } }
         public static Styles _styles = null;

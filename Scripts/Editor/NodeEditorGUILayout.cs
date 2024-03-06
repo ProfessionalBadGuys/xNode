@@ -209,12 +209,10 @@ namespace XNodeEditor {
                     rect.size = new Vector2(16, 16);
                 }
 
-                var useTrianglePortHandle = propertyAttributes.Any(attribute => attribute is NodeTrianglePortHandleAttribute);
-
                 Color backgroundColor = NodeEditorWindow.current.graphEditor.GetPortBackgroundColor(port);
                 Color col = NodeEditorWindow.current.graphEditor.GetPortColor(port);
                 GUIStyle portStyle = NodeEditorWindow.current.graphEditor.GetPortStyle(port);
-                DrawPortHandle(rect, backgroundColor, col, portStyle.normal.background, portStyle.active.background, useTrianglePortHandle);
+                DrawPortHandle(rect, backgroundColor, col, portStyle.normal.background, portStyle.active.background);
 
                 // Register the handle position
                 Vector2 portPos = rect.center;
@@ -339,7 +337,7 @@ namespace XNodeEditor {
             Color backgroundColor = NodeEditorWindow.current.graphEditor.GetPortBackgroundColor(port);
             Color col = NodeEditorWindow.current.graphEditor.GetPortColor(port);
             GUIStyle portStyle = NodeEditorWindow.current.graphEditor.GetPortStyle(port);
-            DrawPortHandle(rect, backgroundColor, col, portStyle.normal.background, portStyle.active.background, port.UseTriangleHandle);
+            DrawPortHandle(rect, backgroundColor, col, portStyle.normal.background, portStyle.active.background);
 
             // Register the handle position
             Vector2 portPos = rect.center;
@@ -370,7 +368,7 @@ namespace XNodeEditor {
             Color backgroundColor = NodeEditorWindow.current.graphEditor.GetPortBackgroundColor(port);
             Color col = NodeEditorWindow.current.graphEditor.GetPortColor(port);
             GUIStyle portStyle = NodeEditorWindow.current.graphEditor.GetPortStyle(port);
-            DrawPortHandle(rect, backgroundColor, col, portStyle.normal.background, portStyle.active.background, port.UseTriangleHandle);
+            DrawPortHandle(rect, backgroundColor, col, portStyle.normal.background, portStyle.active.background);
 
             // Register the handle position
             Vector2 portPos = rect.center;
@@ -393,18 +391,12 @@ namespace XNodeEditor {
         /// <param name="typeColor"></param>
         /// <param name="border">texture for border of the dot port</param>
         /// <param name="dot">texture for the dot port</param>
-        public static void DrawPortHandle(Rect rect, Color backgroundColor, Color typeColor, Texture2D border, Texture2D dot, bool triangle = false) {
+        public static void DrawPortHandle(Rect rect, Color backgroundColor, Color typeColor, Texture2D border, Texture2D dot) {
             Color col = GUI.color;
-            if (triangle) {
-                GUI.color = typeColor;
-                GUI.DrawTexture(rect, NodeEditorResources.triangle);
-            }
-            else {
-                GUI.color = backgroundColor;
-                GUI.DrawTexture(rect, border);
-                GUI.color = typeColor;
-                GUI.DrawTexture(rect, dot);
-            }
+            GUI.color = backgroundColor;
+            GUI.DrawTexture(rect, border);
+            GUI.color = typeColor;
+            GUI.DrawTexture(rect, dot);
 
             GUI.color = col;
         }
