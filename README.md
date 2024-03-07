@@ -14,7 +14,6 @@ Key changes or improvements of this fork from the main xNode repo:
 - When dragging/connect ports, attempt to connect to the hovered node
 - Draw simple boxes when zoomed out too far instead of complex node draw calls (Level of detail)
 - Highlight target port when dragging another port onto it (better feedback)
-- Allow for ports to be triangles/arrows
 - Store the last position (pan offset) of a graph within the graph (remembers where we last were looking in that graph)
 - Separate context menus within NodeGraphEditors depending on selected nodes
 - ResizableNode is an abstract child of Node.cs that can be resized by selecting and dragging the bottom-right corner of the node
