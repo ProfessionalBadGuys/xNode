@@ -140,7 +140,7 @@ namespace XNode {
 
         /// <summary> Return the output value of this node through its parent nodes GetValue override method. </summary>
         /// <returns> <see cref="Node.GetValue(NodePort)"/> </returns>
-        public object GetOutputValue(IDictionary<string, object> context) {
+        public object GetOutputValue(INodeContext context) {
             if (direction == IO.Input)
                 return null;
             return node.GetValue(context, this);
@@ -148,7 +148,7 @@ namespace XNode {
 
         /// <summary> Return the output value of the first connected port. Returns null if none found or invalid.</summary>
         /// <returns> <see cref="NodePort.GetOutputValue"/> </returns>
-        public object GetInputValue(IDictionary<string, object> context) {
+        public object GetInputValue(INodeContext context) {
             NodePort connectedPort = Connection;
             if (connectedPort != null) {
                 return connectedPort.GetOutputValue(context);
@@ -179,7 +179,7 @@ namespace XNode {
 
         /// <summary> Return the output values of all connected ports. </summary>
         /// <returns> <see cref="NodePort.GetOutputValue"/> </returns>
-        public object[] GetInputValues(IDictionary<string, object> context) {
+        public object[] GetInputValues(INodeContext context) {
             object[] objs = new object[ConnectionCount];
             for (int i = 0; i < ConnectionCount; i++) {
                 NodePort connectedPort = connections[i].Port;
@@ -195,14 +195,14 @@ namespace XNode {
 
         /// <summary> Return the output value of the first connected port. Returns null if none found or invalid. </summary>
         /// <returns> <see cref="NodePort.GetOutputValue"/> </returns>
-        public T GetInputValue<T>(IDictionary<string, object> context) {
+        public T GetInputValue<T>(INodeContext context) {
             object obj = GetInputValue(context);
             return obj is T ? (T)obj : default(T);
         }
 
         /// <summary> Return the output values of all connected ports. </summary>
         /// <returns> <see cref="NodePort.GetOutputValue"/> </returns>
-        public T[] GetInputValues<T>(IDictionary<string, object> context) {
+        public T[] GetInputValues<T>(INodeContext context) {
             object[] objs = GetInputValues(context);
             T[] ts = new T[objs.Length];
             for (int i = 0; i < objs.Length; i++) {
@@ -214,7 +214,7 @@ namespace XNode {
 
         /// <summary> Return true if port is connected and has a valid input. </summary>
         /// <returns> <see cref="NodePort.GetOutputValue"/> </returns>
-        public bool TryGetInputValue<T>(IDictionary<string, object> context, out T value) {
+        public bool TryGetInputValue<T>(INodeContext context, out T value) {
             object obj = GetInputValue(context);
             if (obj is T) {
                 value = (T)obj;
