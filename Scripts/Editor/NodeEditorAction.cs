@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using XNode;
 using XNodeEditor.Internal;
 #if UNITY_2019_1_OR_NEWER && USE_ADVANCED_GENERIC_MENU
 using GenericMenu = XNodeEditor.AdvancedGenericMenu;
@@ -46,7 +47,7 @@ namespace XNodeEditor {
         private float dragThreshold = 1f;
 
         [NonSerialized] public UnityEngine.Object selectedNodeRunnerUnityObject;
-        [NonSerialized] public IDictionary<string, object> selectedContext;
+        [NonSerialized] public INodeContext selectedContext;
 
         public void Controls() {
             wantsMouseMove = true;
@@ -249,6 +250,11 @@ namespace XNodeEditor {
 									EditorUtility.SetDirty(graph);
 								}
 							}
+                            // Attempt to trigger custom NodeEditor Logic
+                            else if (IsHoveringNode && NodeEditor.GetEditor(hoveredNode, this).HasCustomDroppedPortLogic()) {
+                                var hoveredNodeEditor = NodeEditor.GetEditor(hoveredNode, this);
+                                hoveredNodeEditor.PerformCustomDroppedPortLogic(hoveredNode, draggedOutput);
+                            }
 							// Open context menu for auto-connection if there is no target node
 							else if (draggedOutputTarget == null && NodeEditorPreferences.GetSettings().dragToCreate && autoConnectOutput != null) {
                                 GenericMenu menu = new GenericMenu();

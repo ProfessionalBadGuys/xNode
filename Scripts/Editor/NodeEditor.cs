@@ -162,6 +162,14 @@ namespace XNodeEditor {
             }
         }
 
+        public virtual bool HasCustomDroppedPortLogic() {
+            return false;
+        }
+
+        public virtual void PerformCustomDroppedPortLogic(XNode.Node hoveredNode, XNode.NodePort draggedOutput) {
+            // Override this method
+        }
+
         /// <summary> Rename the node asset. This will trigger a reimport of the node. </summary>
         public void Rename(string newName) {
             if (newName == null || newName.Trim() == "") newName = NodeEditorUtilities.NodeDefaultName(target.GetType());
